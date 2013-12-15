@@ -118,5 +118,6 @@ void jhProtominer_submitShare(minerProtosharesBlock_t* block);
 // stats
 extern volatile uint32 totalCollisionCount;
 extern volatile uint32 totalShareCount;
+extern volatile uint32 false_positives;
 
 extern volatile uint32 monitorCurrentBlockHeight;

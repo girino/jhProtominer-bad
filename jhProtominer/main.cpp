@@ -92,8 +92,8 @@ int jhProtominer_minerThread(int threadIndex)
 			memcpy(minerProtosharesBlock.merkleRootOriginal, workDataSource.merkleRootOriginal, 32);
 			memcpy(minerProtosharesBlock.prevBlockHash, workDataSource.prevBlockHash, 32);
 			memcpy(minerProtosharesBlock.targetShare, workDataSource.targetShare, 32);
-			minerProtosharesBlock.uniqueMerkleSeed = uniqueMerkleSeedGenerator;
-			uniqueMerkleSeedGenerator++;
+			minerProtosharesBlock.uniqueMerkleSeed = uniqueMerkleSeedGenerator++;
+			//uniqueMerkleSeedGenerator++;
 			// generate merkle root transaction
 			bitclient_generateTxHash(sizeof(uint32), (uint8*)&minerProtosharesBlock.uniqueMerkleSeed, workDataSource.coinBase1Size, workDataSource.coinBase1, workDataSource.coinBase2Size, workDataSource.coinBase2, workDataSource.txHash);
 			bitclient_calculateMerkleRoot(workDataSource.txHash, workDataSource.txHashCount+1, minerProtosharesBlock.merkleRoot);
@@ -106,37 +106,7 @@ int jhProtominer_minerThread(int threadIndex)
 			continue;
 		}
 		// valid work data present, start mining
-		switch( minerSettings.protoshareMemoryMode )
-		{
-		case PROTOSHARE_MEM_4096:
-			protoshares_process_4096(&minerProtosharesBlock);
-			break;
-		case PROTOSHARE_MEM_2048:
-			protoshares_process_2048(&minerProtosharesBlock);
-			break;
-		case PROTOSHARE_MEM_1024:
-			protoshares_process_1024(&minerProtosharesBlock);
-			break;
-		case PROTOSHARE_MEM_512:
-			protoshares_process_512(&minerProtosharesBlock);
-			break;
-		case PROTOSHARE_MEM_256:
-			protoshares_process_256(&minerProtosharesBlock);
-			break;
-		case PROTOSHARE_MEM_128:
-			protoshares_process_128(&minerProtosharesBlock);
-			break;
-		case PROTOSHARE_MEM_32:
-			protoshares_process_32(&minerProtosharesBlock);
-			break;
-		case PROTOSHARE_MEM_8:
-			protoshares_process_8(&minerProtosharesBlock);
-			break;
-		default:
-			printf("Unknown memory mode\n");
-			Sleep(5000);
-			break;
-		}
+		protoshares_process_512(&minerProtosharesBlock);
 	}
 	return 0;
 }
@@ -205,6 +175,8 @@ void jhProtominer_xptQueryWorkLoop()
 					collisionsPerMinute = (double)totalCollisionCount / (double)passedSeconds * 60.0;
 				}
 				printf("collisions/min: %.4lf Shares total: %d\n", collisionsPerMinute, totalShareCount);
+				printf("false positives: %d\n", false_positives);
+				false_positives++;
 			}
 			timerPrintDetails = currentTick + 8000;
 		}
@@ -368,38 +340,6 @@ void jhProtominer_parseCommandline(int argc, char **argv)
 			}
 			cIdx++;
 		}
-		else if( memcmp(argument, "-m4096", 7)==0 )
-		{
-			commandlineInput.ptsMemoryMode = PROTOSHARE_MEM_4096;
-		}
-		else if( memcmp(argument, "-m2048", 7)==0 )
-		{
-			commandlineInput.ptsMemoryMode = PROTOSHARE_MEM_2048;
-		}
-		else if( memcmp(argument, "-m1024", 7)==0 )
-		{
-			commandlineInput.ptsMemoryMode = PROTOSHARE_MEM_1024;
-		}
-		else if( memcmp(argument, "-m512", 6)==0 )
-		{
-			commandlineInput.ptsMemoryMode = PROTOSHARE_MEM_512;
-		}
-		else if( memcmp(argument, "-m256", 6)==0 )
-		{
-			commandlineInput.ptsMemoryMode = PROTOSHARE_MEM_256;
-		}
-		else if( memcmp(argument, "-m128", 6)==0 )
-		{
-			commandlineInput.ptsMemoryMode = PROTOSHARE_MEM_128;
-		}
-		else if( memcmp(argument, "-m32", 5)==0 )
-		{
-			commandlineInput.ptsMemoryMode = PROTOSHARE_MEM_32;
-		}
-		else if( memcmp(argument, "-m8", 4)==0 )
-		{
-			commandlineInput.ptsMemoryMode = PROTOSHARE_MEM_8;
-		}
 		else if( memcmp(argument, "-help", 6)==0 || memcmp(argument, "--help", 7)==0 )
 		{
 			jhProtominer_printHelp();
@@ -424,7 +364,7 @@ int main(int argc, char** argv)
 	commandlineInput.host = "ypool.net";
 	srand(GetTickCount());
 	commandlineInput.port = 8080 + (rand()%8); // use random port between 8080 and 8088
-	commandlineInput.ptsMemoryMode = PROTOSHARE_MEM_256;
+	commandlineInput.ptsMemoryMode = PROTOSHARE_MEM_512;
 	SYSTEM_INFO sysinfo;
 	GetSystemInfo( &sysinfo );
 	commandlineInput.numThreads = sysinfo.dwNumberOfProcessors;
