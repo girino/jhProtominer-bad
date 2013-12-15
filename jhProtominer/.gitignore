@@ -1,0 +1,17 @@
+/jhlib.o
+/jhProtominer
+/main.o
+/protosharesMiner.o
+/sha2.o
+/sha512_avx.o
+/sha512_sse4.o
+/sha512.o
+/sph_sha2.o
+/sph_sha2big.o
+/transaction.o
+/win.o
+/xptClient.o
+/xptClientPacketHandler.o
+/xptPacketbuffer.o
+/xptServer.o
+/xptServerPacketHandler.o
