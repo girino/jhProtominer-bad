@@ -15,6 +15,8 @@ volatile uint32 invalid_shares = 0;
 volatile uint32 false_positives = 0;
 volatile uint32 numSha256Runs = 0;
 volatile uint32 numSha512Runs = 0;
+volatile uint32 looptime = 0;
+volatile uint32 numloops = 0;
 
 bool protoshares_revalidateCollision(minerProtosharesBlock_t* block, uint8* midHash, uint32 indexA, uint32 indexB, uint64 birthdayB)
 {
@@ -150,6 +152,7 @@ void protoshares_process_512(minerProtosharesBlock_t* block)
 	uint32 step = BIRTHDAYS_PER_HASH * CACHED_HASHES;
 	uint64 resultHashStorage[step];
 	memcpy(tempHash+4, midHash, 32);
+
 	for(uint32 n=0; n<(MAX_MOMENTUM_NONCE); n += step)
 	{
 		if( block->height != monitorCurrentBlockHeight )
@@ -165,7 +168,7 @@ void protoshares_process_512(minerProtosharesBlock_t* block)
 		{
 			uint64* resultHash = resultHashStorage + m8;
 			uint32 i = n + m8;
-#ifndef UNROLL_LOOP
+#ifdef ROLL_LOOP
 			for(uint32 f=0; f<8; f++)
 			{
 				uint64 birthdayB = resultHash[f] >> (64ULL-SEARCH_SPACE_BITS);

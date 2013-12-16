@@ -3,6 +3,8 @@
 #pragma comment(lib,"Ws2_32.lib")
 #include<Winsock2.h>
 #include<ws2tcpip.h>
+#elif __CYGWIN__
+#include"win.h" // port from windows
 #else
 #include"win.h" // port from windows
 #endif
@@ -125,5 +127,7 @@ extern volatile uint32 numSha256Runs;
 extern volatile uint32 numSha512Runs;
 extern volatile uint32 valid_shares;
 extern volatile uint32 invalid_shares;
+extern volatile uint32 looptime;
+extern volatile uint32 numloops;
 
 extern volatile uint32 monitorCurrentBlockHeight;

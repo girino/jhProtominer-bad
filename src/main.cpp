@@ -178,6 +178,9 @@ void jhProtominer_xptQueryWorkLoop()
 				printf("false positives: %d\n", false_positives);
 				printf("sha256: %d\n", numSha256Runs);
 				printf("sha512: %d\n", numSha512Runs);
+				double avglooptime = ((double)looptime) / ((double) numloops);
+				printf("average loop: %lf\n", avglooptime);
+
 				false_positives = 0;
 				numSha256Runs = 0;
 				numSha512Runs = 0;

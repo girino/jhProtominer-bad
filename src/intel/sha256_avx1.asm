@@ -413,9 +413,15 @@ rotate_Xs
 ;; arg 2 : pointer to digest
 ;; arg 3 : Num blocks
 section .text
+%ifdef __APPLE__
 global _sha256_avx
 align 32
 _sha256_avx:
+%else
+global sha256_avx
+align 32
+sha256_avx:
+%endif
 	push	rbx
 %ifndef LINUX
 	push	rsi

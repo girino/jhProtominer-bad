@@ -594,9 +594,13 @@ rotate_Ys
 ; The size of the message pointed to by M must be an integer multiple of SHA512
 ;   message blocks.
 ; L is the message length in SHA512 blocks
+%ifdef __APPLE__
 global _sha512_rorx:function
 _sha512_rorx:
-
+%else
+global sha512_rorx:function
+sha512_rorx:
+%endif
 	; Allocate Stack Space
 	mov	rax, rsp
 	sub	rsp, frame_size

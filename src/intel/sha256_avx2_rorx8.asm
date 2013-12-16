@@ -1137,9 +1137,15 @@ STACK_SIZE	equ _RSP       + _RSP_SIZE
 ;; arg 2 : pointer to digest
 ;; arg 3 : Num blocks
 section .text
+%ifdef __APPLE__
 global _sha256_rorx_x8ms
 align 32
 _sha256_rorx_x8ms:
+%else
+global sha256_rorx_x8ms
+align 32
+sha256_rorx_x8ms:
+%endif
 	push	rbx
 %ifndef LINUX
 	push	rsi

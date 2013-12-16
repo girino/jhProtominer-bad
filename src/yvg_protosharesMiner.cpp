@@ -15,6 +15,8 @@ volatile uint32 invalid_shares = 0;
 volatile uint32 false_positives = 0;
 volatile uint32 numSha256Runs = 0;
 volatile uint32 numSha512Runs = 0;
+volatile uint32 looptime = 0;
+volatile uint32 numloops = 0;
 
 bool protoshares_revalidateCollision(minerProtosharesBlock_t* block, uint8* midHash, uint32 indexA, uint32 indexB)
 {
@@ -145,16 +147,33 @@ void protoshares_process_512(minerProtosharesBlock_t* block) {
 	sha512_ctx c512;
 	memcpy(inHash+4, midHash, 32);
 
-	for (uint32 n = 0; n < MAX_MOMENTUM_NONCE; n+= BIRTHDAYS_PER_HASH) {
+	// count full loop time
+	uint32 firstTick = GetTickCount();
+
+	//for (uint32 n = 0; n < MAX_MOMENTUM_NONCE; n+= BIRTHDAYS_PER_HASH) {
+	uint32 n = 0;
+	for (;;) {
+		if( block->height != monitorCurrentBlockHeight )
+			break;
+		if( n >= MAX_MOMENTUM_NONCE ) {
+			//only normal exits count
+			uint32 lastTick = GetTickCount();
+			looptime += (lastTick - firstTick);
+			numloops++;
+			break;
+		}
+
 		sha512_init(&c512);
 		*(uint32*)inHash = n;
 		sha512_update_final(&c512, inHash, 36, (unsigned char*)(outHash));
 
-		for(uint32 f=0; f<8; f++)
+		// unroll the loop
+#ifndef UNROLL_LOOPS
+		for(uint32 f=0; f<BIRTHDAYS_PER_HASH; f++)
 		{
-			uint64 birthdayB = outHash[f] >> (64ULL-SEARCH_SPACE_BITS);
+			uint32 birthdayB = outHash[f] >> (64ULL-SEARCH_SPACE_BITS);
 			uint32 collisionKey = (uint32)((birthdayB>>18) & COLLISION_KEY_MASK);
-			uint64 birthday = birthdayB & (COLLISION_TABLE_SIZE-1);
+			uint32 birthday = birthdayB & (COLLISION_TABLE_SIZE-1);
 			if( collisionIndices[birthday] && ((collisionIndices[birthday]&COLLISION_KEY_MASK) == collisionKey))
 			{
 				protoshares_revalidateCollision(block, midHash, collisionIndices[birthday]&~COLLISION_KEY_MASK, n+f);
@@ -162,5 +181,97 @@ void protoshares_process_512(minerProtosharesBlock_t* block) {
 				collisionIndices[birthday] = n+f | collisionKey; // we have 6 bits available for validation
 			}
 		}
+#else
+		{
+			uint64 birthdayB = outHash[0] >> (64ULL-SEARCH_SPACE_BITS);
+			uint32 collisionKey = (uint32)((birthdayB>>18) & COLLISION_KEY_MASK);
+			uint64 birthday = birthdayB & (COLLISION_TABLE_SIZE-1);
+			if( collisionIndices[birthday] && ((collisionIndices[birthday]&COLLISION_KEY_MASK) == collisionKey))
+			{
+				protoshares_revalidateCollision(block, midHash, collisionIndices[birthday]&~COLLISION_KEY_MASK, n);
+			} else {
+				collisionIndices[birthday] = n | collisionKey; // we have 6 bits available for validation
+			}
+		}
+		{
+			uint64 birthdayB = outHash[1] >> (64ULL-SEARCH_SPACE_BITS);
+			uint32 collisionKey = (uint32)((birthdayB>>18) & COLLISION_KEY_MASK);
+			uint64 birthday = birthdayB & (COLLISION_TABLE_SIZE-1);
+			if( collisionIndices[birthday] && ((collisionIndices[birthday]&COLLISION_KEY_MASK) == collisionKey))
+			{
+				protoshares_revalidateCollision(block, midHash, collisionIndices[birthday]&~COLLISION_KEY_MASK, n+1);
+			} else {
+				collisionIndices[birthday] = n+1 | collisionKey; // we have 6 bits available for validation
+			}
+		}
+		{
+			uint64 birthdayB = outHash[2] >> (64ULL-SEARCH_SPACE_BITS);
+			uint32 collisionKey = (uint32)((birthdayB>>18) & COLLISION_KEY_MASK);
+			uint64 birthday = birthdayB & (COLLISION_TABLE_SIZE-1);
+			if( collisionIndices[birthday] && ((collisionIndices[birthday]&COLLISION_KEY_MASK) == collisionKey))
+			{
+				protoshares_revalidateCollision(block, midHash, collisionIndices[birthday]&~COLLISION_KEY_MASK, n+2);
+			} else {
+				collisionIndices[birthday] = n+2 | collisionKey; // we have 6 bits available for validation
+			}
+		}
+		{
+			uint64 birthdayB = outHash[3] >> (64ULL-SEARCH_SPACE_BITS);
+			uint32 collisionKey = (uint32)((birthdayB>>18) & COLLISION_KEY_MASK);
+			uint64 birthday = birthdayB & (COLLISION_TABLE_SIZE-1);
+			if( collisionIndices[birthday] && ((collisionIndices[birthday]&COLLISION_KEY_MASK) == collisionKey))
+			{
+				protoshares_revalidateCollision(block, midHash, collisionIndices[birthday]&~COLLISION_KEY_MASK, n+3);
+			} else {
+				collisionIndices[birthday] = n+3 | collisionKey; // we have 6 bits available for validation
+			}
+		}
+		{
+			uint64 birthdayB = outHash[4] >> (64ULL-SEARCH_SPACE_BITS);
+			uint32 collisionKey = (uint32)((birthdayB>>18) & COLLISION_KEY_MASK);
+			uint64 birthday = birthdayB & (COLLISION_TABLE_SIZE-1);
+			if( collisionIndices[birthday] && ((collisionIndices[birthday]&COLLISION_KEY_MASK) == collisionKey))
+			{
+				protoshares_revalidateCollision(block, midHash, collisionIndices[birthday]&~COLLISION_KEY_MASK, n+4);
+			} else {
+				collisionIndices[birthday] = n+4 | collisionKey; // we have 6 bits available for validation
+			}
+		}
+		{
+			uint64 birthdayB = outHash[5] >> (64ULL-SEARCH_SPACE_BITS);
+			uint32 collisionKey = (uint32)((birthdayB>>18) & COLLISION_KEY_MASK);
+			uint64 birthday = birthdayB & (COLLISION_TABLE_SIZE-1);
+			if( collisionIndices[birthday] && ((collisionIndices[birthday]&COLLISION_KEY_MASK) == collisionKey))
+			{
+				protoshares_revalidateCollision(block, midHash, collisionIndices[birthday]&~COLLISION_KEY_MASK, n+5);
+			} else {
+				collisionIndices[birthday] = n+5 | collisionKey; // we have 6 bits available for validation
+			}
+		}
+		{
+			uint64 birthdayB = outHash[6] >> (64ULL-SEARCH_SPACE_BITS);
+			uint32 collisionKey = (uint32)((birthdayB>>18) & COLLISION_KEY_MASK);
+			uint64 birthday = birthdayB & (COLLISION_TABLE_SIZE-1);
+			if( collisionIndices[birthday] && ((collisionIndices[birthday]&COLLISION_KEY_MASK) == collisionKey))
+			{
+				protoshares_revalidateCollision(block, midHash, collisionIndices[birthday]&~COLLISION_KEY_MASK, n+6);
+			} else {
+				collisionIndices[birthday] = n+6 | collisionKey; // we have 6 bits available for validation
+			}
+		}
+		{
+			uint64 birthdayB = outHash[7] >> (64ULL-SEARCH_SPACE_BITS);
+			uint32 collisionKey = (uint32)((birthdayB>>18) & COLLISION_KEY_MASK);
+			uint64 birthday = birthdayB & (COLLISION_TABLE_SIZE-1);
+			if( collisionIndices[birthday] && ((collisionIndices[birthday]&COLLISION_KEY_MASK) == collisionKey))
+			{
+				protoshares_revalidateCollision(block, midHash, collisionIndices[birthday]&~COLLISION_KEY_MASK, n+7);
+			} else {
+				collisionIndices[birthday] = n+7 | collisionKey; // we have 6 bits available for validation
+			}
+		}
+
+#endif
+		n+=BIRTHDAYS_PER_HASH;
 	}
 }
