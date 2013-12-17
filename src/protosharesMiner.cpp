@@ -1,12 +1,11 @@
 #include"global.h"
-
-#define OLDVERSION 1
+#include "shaselection.h"
 
 #define MAX_MOMENTUM_NONCE		67108864
 #define SEARCH_SPACE_BITS		50
 #define BIRTHDAYS_PER_HASH		8
 
-__declspec(thread) uint32* __collisionMap = NULL;
+//__declspec(thread) uint32* __collisionMap = NULL;
 
 volatile uint32 totalCollisionCount = 0;
 volatile uint32 totalShareCount = 0;
@@ -128,7 +127,7 @@ bool protoshares_revalidateCollision(minerProtosharesBlock_t* block, uint8* midH
 #define COLLISION_KEY_WIDTH		5
 #define COLLISION_KEY_MASK		0xF8000000 //(0xFFFFFFFF<<(COLLISION_TABLE_BITS))
 
-void protoshares_process_512(minerProtosharesBlock_t* block)
+void protoshares_process_512(minerProtosharesBlock_t* block, uint32** __collisionMap)
 {
 	// generate mid hash using sha256 (header hash)
 	uint8 midHash[32];
@@ -141,10 +140,10 @@ void protoshares_process_512(minerProtosharesBlock_t* block)
 	sha256_final(&c256, midHash);
 	numSha256Runs+=2;
 	// init collision map
-	if( __collisionMap == NULL ) {
-		__collisionMap = (uint32*)malloc(sizeof(uint32)*COLLISION_TABLE_SIZE);
+	if( *__collisionMap == NULL ) {
+		*__collisionMap = (uint32*)malloc(sizeof(uint32)*COLLISION_TABLE_SIZE);
 	}
-	uint32* collisionIndices = __collisionMap;
+	uint32* collisionIndices = *__collisionMap;
 	memset(collisionIndices, 0x00, sizeof(uint32)*COLLISION_TABLE_SIZE);
 	// start search
 	uint8 tempHash[32+4];
@@ -152,6 +151,9 @@ void protoshares_process_512(minerProtosharesBlock_t* block)
 	uint32 step = BIRTHDAYS_PER_HASH * CACHED_HASHES;
 	uint64 resultHashStorage[step];
 	memcpy(tempHash+4, midHash, 32);
+
+	// count full loop time
+	uint32 firstTick = GetTickCount();
 
 	for(uint32 n=0; n<(MAX_MOMENTUM_NONCE); n += step)
 	{
@@ -168,7 +170,7 @@ void protoshares_process_512(minerProtosharesBlock_t* block)
 		{
 			uint64* resultHash = resultHashStorage + m8;
 			uint32 i = n + m8;
-#ifdef ROLL_LOOP
+#ifndef UNROLL_LOOPS
 			for(uint32 f=0; f<8; f++)
 			{
 				uint64 birthdayB = resultHash[f] >> (64ULL-SEARCH_SPACE_BITS);
@@ -236,5 +238,10 @@ void protoshares_process_512(minerProtosharesBlock_t* block)
 			#endif
 		}
 	}
+	if( block->height == monitorCurrentBlockHeight ) {
+		//only normal exits count
+		uint32 lastTick = GetTickCount();
+		looptime += (lastTick - firstTick);
+		numloops++;
+	}
 }
-

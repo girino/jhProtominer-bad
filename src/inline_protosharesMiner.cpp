@@ -1,57 +1,13 @@
 #include"global.h"
-#include "sph_sha2.h"
-#include "sph_types.h"
-#include <openssl/sha.h>
-#include "sha512.h"
-#include "sha2.h"
-#include "sph_sha2.h"
-
-// macros
-#ifdef USE_SPH
-#define _sha512_context sph_sha512_context
-#elif USE_ASM
-#define _sha512_context SHA512_ContextASM
-#elif USE_OPENSSL
-#define _sha512_context SHA512_CTX
-#else
-#define _sha512_context sha512_ctx
-#endif
-
-void _sha512(_sha512_context* ctx, const unsigned char* data, size_t len, const unsigned char* result) {
-
-#ifdef PROFILE_SHA
-		uint32 firsTicksha = GetTickCount();
-#endif
-
-#ifdef USE_SPH
-	sph_sha512_init(ctx);
-	sph_sha512_update_final(ctx, data, len, (unsigned char*)(result));
-#elif USE_OPENSSL
-	SHA512_Init(ctx);
-	SHA512_Update(ctx, data, len);
-	SHA512_Final((unsigned char*)(result), ctx);
-#elif USE_ASM
-	SHA512_InitASM(ctx);
-	SHA512_UpdateASM(ctx, data, len);
-	SHA512_FinalASM(ctx, (unsigned char*)(result));
-#else
-	sha512_init(ctx);
-	sha512_update_final(ctx, data, len, (unsigned char*)(result));
-#endif
-
-#ifdef PROFILE_SHA
-		uint32 lastTicksha = GetTickCount();
-		shatime += (lastTicksha - firsTicksha);
-		numSha512Runs++;
-#endif
-
-}
+#include "shaselection.h"
 
 #define OLDVERSION 1
 
 #define MAX_MOMENTUM_NONCE		67108864
 #define SEARCH_SPACE_BITS		50
 #define BIRTHDAYS_PER_HASH		8
+
+//__declspec(thread) uint32* __collisionMap = NULL;
 
 volatile uint32 totalCollisionCount = 0;
 volatile uint32 totalShareCount = 0;
@@ -61,8 +17,15 @@ volatile uint32 false_positives = 0;
 volatile uint32 numSha256Runs = 0;
 volatile uint32 numSha512Runs = 0;
 volatile uint32 looptime = 0;
-volatile uint32 shatime = 0;
 volatile uint32 numloops = 0;
+
+//#ifdef USE_SPH
+//#elif USE_OPENSSL
+//#elif USE_ASM
+//#else
+#include "sha2_inline.cpp"
+//#endif
+
 
 bool protoshares_revalidateCollision(minerProtosharesBlock_t* block, uint8* midHash, uint32 indexA, uint32 indexB)
 {
@@ -77,12 +40,16 @@ bool protoshares_revalidateCollision(minerProtosharesBlock_t* block, uint8* midH
 	memcpy(tempHash+4, midHash, 32);
 	// get birthday A
 	*(uint32*)tempHash = indexA&~7;
-	_sha512_context c512;
-	_sha512(&c512, tempHash, 32+4, (unsigned char*)resultHash);
+	sha512_ctx c512;
+	sha512_init(&c512);
+	sha512_update(&c512, tempHash, 32+4);
+	sha512_final(&c512, (unsigned char*)resultHash);
 	uint64 birthdayA = resultHash[indexA&7] >> (64ULL-SEARCH_SPACE_BITS);
 	// get birthday B
 	*(uint32*)tempHash = indexB&~7;
-	_sha512(&c512, tempHash, 32+4, (unsigned char*)resultHash);
+	sha512_init(&c512);
+	sha512_update(&c512, tempHash, 32+4);
+	sha512_final(&c512, (unsigned char*)resultHash);
 	uint64 birthdayB = resultHash[indexB&7] >> (64ULL-SEARCH_SPACE_BITS);
 	if( birthdayA != birthdayB )
 	{
@@ -186,34 +153,39 @@ void protoshares_process_512(minerProtosharesBlock_t* block, uint32** __collisio
 
 	uint8 inHash[32+4];
 	uint64 outHash[BIRTHDAYS_PER_HASH];
-
-	_sha512_context c512;
+	sha512_ctx c512;
 	memcpy(inHash+4, midHash, 32);
 
-#ifdef PROFILE
+	// count full loop time
 	uint32 firstTick = GetTickCount();
-#endif
 
-	for (uint32 n = 0; n < MAX_MOMENTUM_NONCE; n+= BIRTHDAYS_PER_HASH) {
-//	uint32 n = 0;
-//	while (1) {
-//		if( n >= MAX_MOMENTUM_NONCE ) {
-//			//only normal exits count
-//			break;
-//		}
+	//for (uint32 n = 0; n < MAX_MOMENTUM_NONCE; n+= BIRTHDAYS_PER_HASH) {
+	uint32 n = 0;
+	while (1) {
 		if( block->height != monitorCurrentBlockHeight )
 			break;
+		if( n >= MAX_MOMENTUM_NONCE ) {
+			//only normal exits count
+			uint32 lastTick = GetTickCount();
+			looptime += (lastTick - firstTick);
+			numloops++;
+			break;
+		}
 
+		inline_sha512_init(&c512);
 		*(uint32*)inHash = n;
-		_sha512(&c512, inHash, 36, (unsigned char*)(outHash));
+//		sha512_update_final(&c512, inHash, 36, (unsigned char*)(outHash));
+		inline_sha512_update(&c512, inHash, 36);
+		inline_sha512_final(&c512, (unsigned char*)(outHash));
+		//inline_sha512(inHash, 36, (unsigned char*)(outHash));
 
 		// unroll the loop
 #ifndef UNROLL_LOOPS
-		for(register uint32 f=0; f<BIRTHDAYS_PER_HASH; f++)
+		for(uint32 f=0; f<BIRTHDAYS_PER_HASH; f++)
 		{
-			uint64 birthdayB = outHash[f] >> (64ULL-SEARCH_SPACE_BITS);
+			uint32 birthdayB = outHash[f] >> (64ULL-SEARCH_SPACE_BITS);
 			uint32 collisionKey = (uint32)((birthdayB>>18) & COLLISION_KEY_MASK);
-			uint64 birthday = birthdayB & (COLLISION_TABLE_SIZE-1);
+			uint32 birthday = birthdayB & (COLLISION_TABLE_SIZE-1);
 			if( collisionIndices[birthday] && ((collisionIndices[birthday]&COLLISION_KEY_MASK) == collisionKey))
 			{
 				protoshares_revalidateCollision(block, midHash, collisionIndices[birthday]&~COLLISION_KEY_MASK, n+f);
@@ -223,7 +195,7 @@ void protoshares_process_512(minerProtosharesBlock_t* block, uint32** __collisio
 		}
 #else
 		{
-			uint64 birthdayB = outHash[0] >> (64-SEARCH_SPACE_BITS);
+			uint64 birthdayB = outHash[0] >> (64ULL-SEARCH_SPACE_BITS);
 			uint32 collisionKey = (uint32)((birthdayB>>18) & COLLISION_KEY_MASK);
 			uint64 birthday = birthdayB & (COLLISION_TABLE_SIZE-1);
 			if( collisionIndices[birthday] && ((collisionIndices[birthday]&COLLISION_KEY_MASK) == collisionKey))
@@ -234,7 +206,7 @@ void protoshares_process_512(minerProtosharesBlock_t* block, uint32** __collisio
 			}
 		}
 		{
-			uint64 birthdayB = outHash[1] >> (64-SEARCH_SPACE_BITS);
+			uint64 birthdayB = outHash[1] >> (64ULL-SEARCH_SPACE_BITS);
 			uint32 collisionKey = (uint32)((birthdayB>>18) & COLLISION_KEY_MASK);
 			uint64 birthday = birthdayB & (COLLISION_TABLE_SIZE-1);
 			if( collisionIndices[birthday] && ((collisionIndices[birthday]&COLLISION_KEY_MASK) == collisionKey))
@@ -245,7 +217,7 @@ void protoshares_process_512(minerProtosharesBlock_t* block, uint32** __collisio
 			}
 		}
 		{
-			uint64 birthdayB = outHash[2] >> (64-SEARCH_SPACE_BITS);
+			uint64 birthdayB = outHash[2] >> (64ULL-SEARCH_SPACE_BITS);
 			uint32 collisionKey = (uint32)((birthdayB>>18) & COLLISION_KEY_MASK);
 			uint64 birthday = birthdayB & (COLLISION_TABLE_SIZE-1);
 			if( collisionIndices[birthday] && ((collisionIndices[birthday]&COLLISION_KEY_MASK) == collisionKey))
@@ -256,7 +228,7 @@ void protoshares_process_512(minerProtosharesBlock_t* block, uint32** __collisio
 			}
 		}
 		{
-			uint64 birthdayB = outHash[3] >> (64-SEARCH_SPACE_BITS);
+			uint64 birthdayB = outHash[3] >> (64ULL-SEARCH_SPACE_BITS);
 			uint32 collisionKey = (uint32)((birthdayB>>18) & COLLISION_KEY_MASK);
 			uint64 birthday = birthdayB & (COLLISION_TABLE_SIZE-1);
 			if( collisionIndices[birthday] && ((collisionIndices[birthday]&COLLISION_KEY_MASK) == collisionKey))
@@ -267,7 +239,7 @@ void protoshares_process_512(minerProtosharesBlock_t* block, uint32** __collisio
 			}
 		}
 		{
-			uint64 birthdayB = outHash[4] >> (64-SEARCH_SPACE_BITS);
+			uint64 birthdayB = outHash[4] >> (64ULL-SEARCH_SPACE_BITS);
 			uint32 collisionKey = (uint32)((birthdayB>>18) & COLLISION_KEY_MASK);
 			uint64 birthday = birthdayB & (COLLISION_TABLE_SIZE-1);
 			if( collisionIndices[birthday] && ((collisionIndices[birthday]&COLLISION_KEY_MASK) == collisionKey))
@@ -278,7 +250,7 @@ void protoshares_process_512(minerProtosharesBlock_t* block, uint32** __collisio
 			}
 		}
 		{
-			uint64 birthdayB = outHash[5] >> (64-SEARCH_SPACE_BITS);
+			uint64 birthdayB = outHash[5] >> (64ULL-SEARCH_SPACE_BITS);
 			uint32 collisionKey = (uint32)((birthdayB>>18) & COLLISION_KEY_MASK);
 			uint64 birthday = birthdayB & (COLLISION_TABLE_SIZE-1);
 			if( collisionIndices[birthday] && ((collisionIndices[birthday]&COLLISION_KEY_MASK) == collisionKey))
@@ -289,7 +261,7 @@ void protoshares_process_512(minerProtosharesBlock_t* block, uint32** __collisio
 			}
 		}
 		{
-			uint64 birthdayB = outHash[6] >> (64-SEARCH_SPACE_BITS);
+			uint64 birthdayB = outHash[6] >> (64ULL-SEARCH_SPACE_BITS);
 			uint32 collisionKey = (uint32)((birthdayB>>18) & COLLISION_KEY_MASK);
 			uint64 birthday = birthdayB & (COLLISION_TABLE_SIZE-1);
 			if( collisionIndices[birthday] && ((collisionIndices[birthday]&COLLISION_KEY_MASK) == collisionKey))
@@ -300,7 +272,7 @@ void protoshares_process_512(minerProtosharesBlock_t* block, uint32** __collisio
 			}
 		}
 		{
-			uint64 birthdayB = outHash[7] >> (64-SEARCH_SPACE_BITS);
+			uint64 birthdayB = outHash[7] >> (64ULL-SEARCH_SPACE_BITS);
 			uint32 collisionKey = (uint32)((birthdayB>>18) & COLLISION_KEY_MASK);
 			uint64 birthday = birthdayB & (COLLISION_TABLE_SIZE-1);
 			if( collisionIndices[birthday] && ((collisionIndices[birthday]&COLLISION_KEY_MASK) == collisionKey))
@@ -312,12 +284,6 @@ void protoshares_process_512(minerProtosharesBlock_t* block, uint32** __collisio
 		}
 
 #endif
-//		n+=BIRTHDAYS_PER_HASH;
+		n+=BIRTHDAYS_PER_HASH;
 	}
-#ifdef PROFILE
-	uint32 lastTick = GetTickCount();
-	looptime += (lastTick - firstTick);
-	numloops++;
-#endif
-
 }

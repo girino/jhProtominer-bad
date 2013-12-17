@@ -73,6 +73,7 @@ void jhProtominer_submitShare(minerProtosharesBlock_t* block)
 
 int jhProtominer_minerThread(int threadIndex)
 {
+	uint32* __collisionMap = NULL;
 	while( true )
 	{
 		// local work data
@@ -106,7 +107,7 @@ int jhProtominer_minerThread(int threadIndex)
 			continue;
 		}
 		// valid work data present, start mining
-		protoshares_process_512(&minerProtosharesBlock);
+		protoshares_process_512(&minerProtosharesBlock, &__collisionMap);
 	}
 	return 0;
 }
@@ -179,7 +180,9 @@ void jhProtominer_xptQueryWorkLoop()
 				printf("sha256: %d\n", numSha256Runs);
 				printf("sha512: %d\n", numSha512Runs);
 				double avglooptime = ((double)looptime) / ((double) numloops);
+				double relshatime = ((double)shatime) / ((double) looptime);
 				printf("average loop: %lf\n", avglooptime);
+				printf("average sha time: %lf\n", relshatime);
 
 				false_positives = 0;
 				numSha256Runs = 0;

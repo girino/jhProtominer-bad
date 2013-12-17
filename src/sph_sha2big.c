@@ -36,7 +36,7 @@
 #include <string.h>
 
 #ifdef __cplusplus
-//extern "C" {
+extern "C" {
 #endif
 
 #include "sph_sha2.h"
@@ -250,13 +250,13 @@ sph_sha384_comp(const sph_u64 msg[16], sph_u64 val[8])
 #undef SHA3_IN
 }
 
-#ifdef __cplusplus
-//}
-#endif
-
 void sph_sha512_update_final(void *cc, const void *data, size_t len, void *dst) {
         sph_sha512((sph_sha512_context*) cc, (const char *) data, len);
         sph_sha512_close(cc, dst);
 }
+
+#ifdef __cplusplus
+}
+#endif
 
 #endif

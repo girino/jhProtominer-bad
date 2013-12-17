@@ -178,12 +178,14 @@ static const uint64_t iv256[SHA512_HASH_WORDS] = {
 #define sha512_update_func sha512_sse4
 #elif AVX
 #define sha512_update_func sha512_avx
-#else
+#elif AVX2
 #define sha512_update_func sha512_rorx
+#else
+int sha512_update_func(const void *input_data, void *digest, uint64_t num_blks) { return -1;}
 #endif
 
-inline static void
-_init (SHA512_Context *sc, const uint64_t iv[SHA512_HASH_WORDS])
+static void
+_init (SHA512_ContextASM *sc, const uint64_t iv[SHA512_HASH_WORDS])
 {
 	int i;
 
@@ -195,13 +197,13 @@ _init (SHA512_Context *sc, const uint64_t iv[SHA512_HASH_WORDS])
 }
 
 void
-SHA512_Init (SHA512_Context *sc)
+SHA512_InitASM (SHA512_ContextASM *sc)
 {
 	_init (sc, iv512);
 }
 
 void
-SHA512_Update (SHA512_Context *sc, const void *vdata, size_t len)
+SHA512_UpdateASM (SHA512_ContextASM *sc, const void *vdata, size_t len)
 {
 	const uint8_t *data = (const uint8_t *)vdata;
 	uint32_t bufferBytesLeft;
@@ -258,8 +260,8 @@ SHA512_Update (SHA512_Context *sc, const void *vdata, size_t len)
 	}
 }
 
-inline static void
-_final (SHA512_Context *sc, uint8_t *hash, int hashWords, int halfWord)
+static void
+_final (SHA512_ContextASM *sc, uint8_t *hash, int hashWords, int halfWord)
 {
 	uint32_t bytesToPad;
 	uint64_t lengthPad[2];
@@ -272,8 +274,8 @@ _final (SHA512_Context *sc, uint8_t *hash, int hashWords, int halfWord)
 	lengthPad[0] = BYTESWAP64(sc->totalLength[0]);
 	lengthPad[1] = BYTESWAP64(sc->totalLength[1]);
 	
-	SHA512_Update (sc, padding, bytesToPad);
-	SHA512_Update (sc, lengthPad, 16L);
+	SHA512_UpdateASM (sc, padding, bytesToPad);
+	SHA512_UpdateASM (sc, lengthPad, 16L);
 	
 	if (hash) {
 		for (i = 0; i < hashWords; i++) {
@@ -290,7 +292,7 @@ _final (SHA512_Context *sc, uint8_t *hash, int hashWords, int halfWord)
 }
 
 void
-SHA512_Final (SHA512_Context *sc, uint8_t hash[SHA512_HASH_SIZE])
+SHA512_FinalASM (SHA512_ContextASM *sc, uint8_t hash[SHA512_HASH_SIZE])
 {
 	_final (sc, hash, SHA512_HASH_WORDS, 0);
 }

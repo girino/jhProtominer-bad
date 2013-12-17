@@ -61,7 +61,7 @@
 /* Hash size in 64-bit words */
 #define SHA512_HASH_WORDS 8
 
-typedef struct _SHA512_Context {
+typedef struct _SHA512_ContextASM {
   uint64_t totalLength[2], blocks;
   uint64_t hash[SHA512_HASH_WORDS];
   uint32_t bufferLength;
@@ -69,18 +69,18 @@ typedef struct _SHA512_Context {
     uint64_t words[SHA512_BLOCK_SIZE/8];
     uint8_t bytes[SHA512_BLOCK_SIZE];
   } buffer;
-} SHA512_Context;
+} SHA512_ContextASM;
 
 #ifdef __cplusplus
-//extern "C" {
+extern "C" {
 #endif
 
 void Init_SHA512_avx();
 void Init_SHA512_sse4();
 
-void SHA512_Init (SHA512_Context *sc);
-void SHA512_Update (SHA512_Context *sc, const void *data, size_t len);
-void SHA512_Final (SHA512_Context *sc, uint8_t hash[SHA512_HASH_SIZE]);
+void SHA512_InitASM (SHA512_ContextASM *sc);
+void SHA512_UpdateASM (SHA512_ContextASM *sc, const void *data, size_t len);
+void SHA512_FinalASM (SHA512_ContextASM *sc, uint8_t hash[SHA512_HASH_SIZE]);
 
 /*
  * Intel's optimized SHA512 core routines. These routines are described in an
@@ -88,12 +88,15 @@ void SHA512_Final (SHA512_Context *sc, uint8_t hash[SHA512_HASH_SIZE]);
  * "Fast SHA-512 Implementations on Intel Architecture Processors"
  * Note: Works on AMD Bulldozer and later as well.
  */
-extern "C" void sha512_sse4(const void *input_data, void *digest, uint64_t num_blks);
-extern "C" void sha512_avx(const void *input_data, void *digest, uint64_t num_blks);
-extern "C" void sha512_rorx(const void *input_data, void *digest, uint64_t num_blks);
+extern void sha512_sse4(const void *input_data, void *digest, uint64_t num_blks);
+extern void sha512_avx(const void *input_data, void *digest, uint64_t num_blks);
+extern void sha512_rorx(const void *input_data, void *digest, uint64_t num_blks);
+//extern "C" void sha512_sse4(const void *input_data, void *digest, uint64_t num_blks);
+//extern "C" void sha512_avx(const void *input_data, void *digest, uint64_t num_blks);
+//extern "C" void sha512_rorx(const void *input_data, void *digest, uint64_t num_blks);
 
 #ifdef __cplusplus
-//}
+}
 #endif
 
 #endif /* !_APS_SHA512_H */

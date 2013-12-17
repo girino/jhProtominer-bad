@@ -1,18 +1,19 @@
+#include <sys/time.h>
 #include "win.h"
 
 
 void InitializeCriticalSection(CRITICAL_SECTION *s){
-//    pthread_mutexattr_init(&s->attr);
-//    pthread_mutexattr_settype(&s->attr, PTHREAD_MUTEX_RECURSIVE);
-//    pthread_mutex_init(&s->mutex, &s->attr);
+    pthread_mutexattr_init(&s->attr);
+    pthread_mutexattr_settype(&s->attr, PTHREAD_MUTEX_RECURSIVE);
+    pthread_mutex_init(&s->mutex, &s->attr);
 }
 
 void EnterCriticalSection(CRITICAL_SECTION *s){
-//    pthread_mutex_lock(&s->mutex);
+    pthread_mutex_lock(&s->mutex);
 }
 
 void LeaveCriticalSection(CRITICAL_SECTION *s){
-//    pthread_mutex_unlock(&s->mutex);
+    pthread_mutex_unlock(&s->mutex);
 }
 
 void CreateThread(LPVOID ig1, size_t ig2, LPTHREAD_START_ROUTINE func, LPVOID arg, uint32_t ig3,  LPDWORD tid){
@@ -20,3 +21,10 @@ void CreateThread(LPVOID ig1, size_t ig2, LPTHREAD_START_ROUTINE func, LPVOID ar
     pthread_create(&thread, NULL, func, arg);
 }
 
+
+unsigned int GetTickCount(void)
+{
+    struct timeval tv;
+    gettimeofday(&tv, NULL);
+    return (unsigned int)(tv.tv_sec * 1000 + tv.tv_usec / 1000);
+}

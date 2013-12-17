@@ -1,5 +1,6 @@
 #include"global.h"
-#include "sph_sha2.h"
+#include "sha2.h"
+
 
 void bitclient_addVarIntFromStream(stream_t* msgStream, uint64 varInt)
 {

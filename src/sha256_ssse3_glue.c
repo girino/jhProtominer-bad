@@ -86,15 +86,17 @@ bswap_64 (unsigned long long __x)
 
 #endif /* defined(__MINGW32__) || defined(__MINGW64__) */
 
-extern "C" void sha256_sse4(const char *data, u32 *digest,
+#if defined(__INTEL_COMPILER) || defined(__APPLE__)
+extern void sha256_sse4(const char *data, u32 *digest,
 				     u64 rounds);
-#ifdef CONFIG_AS_AVX
-extern "C" void sha256_avx(const char *data, u32 *digest,
+extern void sha256_avx(const char *data, u32 *digest,
+	     u64 rounds);
+extern void sha256_rorx_x8ms(const char *data, u32 *digest,
 				     u64 rounds);
-#endif
-#ifdef CONFIG_AS_AVX2
-extern "C" void sha256_rorx_x8ms(const char *data, u32 *digest,
-				     u64 rounds);
+#else
+extern "C" void sha256_sse4(const char *data, u32 *digest, u64 rounds);
+extern "C" void sha256_avx(const char *data, u32 *digest, u64 rounds);
+extern "C" void sha256_rorx_x8ms(const char *data, u32 *digest, u64 rounds);
 #endif
 
 //extern void (*sha256_transform_asm)(const char *, u32 *, u64);
@@ -103,9 +105,13 @@ extern "C" void sha256_rorx_x8ms(const char *data, u32 *digest,
 #define sha256_transform_asm sha256_sse4
 #elif AVX
 #define sha256_transform_asm sha256_avx
-#else
+#elif AVX2
 #define sha256_transform_asm sha256_rorx_x8ms
+#else
+void sha256_transform_asm(const char *data, u32 *digest, u64 rounds) { return;};
 #endif
+
+
 
 int sha256_ssse3_init(struct sha256_state *sctx)
 {
