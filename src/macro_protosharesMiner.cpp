@@ -54,7 +54,7 @@ void _sha512(_sha512_context* ctx, const unsigned char* data, size_t len, const 
 
 #define OLDVERSION 1
 
-#define MAX_MOMENTUM_NONCE		67108864
+#define MAX_MOMENTUM_NONCE		0x4000000
 #define SEARCH_SPACE_BITS		50
 #define BIRTHDAYS_PER_HASH		8
 
@@ -168,7 +168,7 @@ bool protoshares_revalidateCollision(minerProtosharesBlock_t* block, uint8* midH
 #undef COLLISION_KEY_WIDTH
 #undef COLLISION_KEY_MASK
 #define COLLISION_TABLE_BITS	(27)
-#define COLLISION_TABLE_SIZE	134217728 // (1<<COLLISION_TABLE_BITS)
+#define COLLISION_TABLE_SIZE	0x8000000 // (1<<COLLISION_TABLE_BITS)
 #define COLLISION_KEY_WIDTH		5
 #define COLLISION_KEY_MASK		0xF8000000 //(0xFFFFFFFF<<(COLLISION_TABLE_BITS))
 
@@ -199,50 +199,32 @@ void protoshares_process_512(minerProtosharesBlock_t* block, uint32** __collisio
 	uint32 firstTick = GetTickCount();
 #endif
 
-	for (uint32 n = 0; n < MAX_MOMENTUM_NONCE; n+= BIRTHDAYS_PER_HASH) {
-//	uint32 n = 0;
-//	while (1) {
-//		if( n >= MAX_MOMENTUM_NONCE ) {
-//			//only normal exits count
-//			break;
-//		}
+	uint32 n = 0;
+	while (1) {
+		if( n >= MAX_MOMENTUM_NONCE ) {
+			break;
+		}
 		if( block->height != monitorCurrentBlockHeight )
 			break;
 
+		repeat2(
 		*(uint32*)inHash = n;
 		_sha512(&c512, inHash, 36, (unsigned char*)(outHash));
 
 		// unroll the loop
-#ifndef UNROLL_LOOPS
-		for(register uint32 f=0; f<BIRTHDAYS_PER_HASH; f++)
-		{
-			uint64 birthdayB = outHash[f] >> (64ULL-SEARCH_SPACE_BITS);
+		repeat8(
+			uint64 birthdayB = outHash[n&7] >> (64-SEARCH_SPACE_BITS);
 			uint32 collisionKey = (uint32)((birthdayB>>18) & COLLISION_KEY_MASK);
-			uint64 birthday = birthdayB & (COLLISION_TABLE_SIZE-1);
+			uint64 birthday = birthdayB % (COLLISION_TABLE_SIZE-1);
 			if( collisionIndices[birthday] && ((collisionIndices[birthday]&COLLISION_KEY_MASK) == collisionKey))
 			{
-				protoshares_revalidateCollision(block, midHash, collisionIndices[birthday]&~COLLISION_KEY_MASK, n+f);
+				protoshares_revalidateCollision(block, midHash, collisionIndices[birthday]&~COLLISION_KEY_MASK, n);
 			} else {
-				collisionIndices[birthday] = n+f | collisionKey; // we have 6 bits available for validation
+				collisionIndices[birthday] = n | collisionKey; // we have 6 bits available for validation
 			}
-		}
-#else
-		int i = 0;
-repeat8(
-			uint64 birthdayB = outHash[i] >> (64-SEARCH_SPACE_BITS);
-			uint32 collisionKey = (uint32)((birthdayB>>18) & COLLISION_KEY_MASK);
-			uint64 birthday = birthdayB & (COLLISION_TABLE_SIZE-1);
-			if( collisionIndices[birthday] && ((collisionIndices[birthday]&COLLISION_KEY_MASK) == collisionKey))
-			{
-				protoshares_revalidateCollision(block, midHash, collisionIndices[birthday]&~COLLISION_KEY_MASK, n+i);
-			} else {
-				collisionIndices[birthday] = n+i | collisionKey; // we have 6 bits available for validation
-			}
-			i++;
-)
-
-#endif
-//		n+=BIRTHDAYS_PER_HASH;
+			n++;
+		)
+		)
 	}
 #ifdef PROFILE
 	uint32 lastTick = GetTickCount();

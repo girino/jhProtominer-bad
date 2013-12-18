@@ -1,6 +1,6 @@
-#CC=icc
+CC=icc
 #CC=clang
-CC=gcc-mp-4.7
+#CC=gcc-mp-4.7
 #CC=llvm-gcc
 CXX=$(CC)
 #CXX=llvm-g++
@@ -13,12 +13,12 @@ CXX=$(CC)
 # * good for icc + sse4
 #CFLAGS=-march=corei7 -mtune=corei7 -axSSE4.2
 # * good for icc + avx
-#CFLAGS=-march=corei7-avx -mtune=corei7-avx -axAVX
+CFLAGS=-march=corei7-avx -mtune=corei7-avx -axAVX
 
-CFLAGS+= -O3
+CFLAGS+= -O3 -funroll-loops
 #CFLAGS+= -g
 
-CFLAGS+= -DUNROLL_LOOPS
+#CFLAGS+= -DUNROLL_LOOPS
 CFLAGS+= -DPROFILE
 #CFLAGS+= -DPROFILE_SHA
 
@@ -33,7 +33,7 @@ obj=sph_sha2.o sph_sha2big.o jhlib.o main.o transaction.o \
 		xptServerPacketHandler.o \
 		sha2.o sha512_sse4.o sha512_avx.o  sha512.o sha512_avx2_rorx.o \
 		sha256_ssse3_glue.o sha256_sse4.o sha256_avx1.o sha256_avx2_rorx8.o \
-		yvg_protosharesMiner.o
+		macro_protosharesMiner.o
 		
 obj+= win.o
 

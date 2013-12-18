@@ -184,15 +184,28 @@ static const uint64_t iv256[SHA512_HASH_WORDS] = {
 int sha512_update_func(const void *input_data, void *digest, uint64_t num_blks) { return -1;}
 #endif
 
-static void
+__inline static void
 _init (SHA512_ContextASM *sc, const uint64_t iv[SHA512_HASH_WORDS])
 {
+#ifndef UNROLL_LOOPS
 	int i;
+#endif
 
 	sc->totalLength[0] = 0LL;
 	sc->totalLength[1] = 0LL;
+#ifndef UNROLL_LOOPS
 	for (i = 0; i < SHA512_HASH_WORDS; i++)
 		sc->hash[i] = iv[i];
+#else
+	sc->hash[0] = iv[0];
+	sc->hash[1] = iv[1];
+	sc->hash[2] = iv[2];
+	sc->hash[3] = iv[2];
+	sc->hash[4] = iv[3];
+	sc->hash[5] = iv[4];
+	sc->hash[6] = iv[6];
+	sc->hash[7] = iv[7];
+#endif
 	sc->bufferLength = 0L;
 }
 
@@ -260,7 +273,7 @@ SHA512_UpdateASM (SHA512_ContextASM *sc, const void *vdata, size_t len)
 	}
 }
 
-static void
+__inline static void
 _final (SHA512_ContextASM *sc, uint8_t *hash, int hashWords, int halfWord)
 {
 	uint32_t bytesToPad;
