@@ -1,5 +1,56 @@
 #include"global.h"
-#include "shaselection.h"
+#include "sph_sha2.h"
+#include "sph_types.h"
+#include <openssl/sha.h>
+#include "sha512.h"
+#include "sha2.h"
+#include "sph_sha2.h"
+
+// tentando uma macro
+#define repeat2(x) {x} {x}
+#define repeat4(x) repeat2(x) repeat2(x)
+#define repeat8(x) repeat4(x) repeat4(x)
+
+// macros
+#ifdef USE_SPH
+#define _sha512_context sph_sha512_context
+#elif USE_ASM
+#define _sha512_context SHA512_ContextASM
+#elif USE_OPENSSL
+#define _sha512_context SHA512_CTX
+#else
+#define _sha512_context sha512_ctx
+#endif
+
+void _sha512(_sha512_context* ctx, const unsigned char* data, size_t len, const unsigned char* result) {
+
+#ifdef PROFILE_SHA
+		uint32 firsTicksha = GetTickCount();
+#endif
+
+#ifdef USE_SPH
+	sph_sha512_init(ctx);
+	sph_sha512_update_final(ctx, data, len, (unsigned char*)(result));
+#elif USE_OPENSSL
+	SHA512_Init(ctx);
+	SHA512_Update(ctx, data, len);
+	SHA512_Final((unsigned char*)(result), ctx);
+#elif USE_ASM
+	SHA512_InitASM(ctx);
+	SHA512_UpdateASM(ctx, data, len);
+	SHA512_FinalASM(ctx, (unsigned char*)(result));
+#else
+	sha512_init(ctx);
+	sha512_update_final(ctx, data, len, (unsigned char*)(result));
+#endif
+
+#ifdef PROFILE_SHA
+		uint32 lastTicksha = GetTickCount();
+		shatime += (lastTicksha - firsTicksha);
+		numSha512Runs++;
+#endif
+
+}
 
 #define MAX_MOMENTUM_NONCE		67108864
 #define SEARCH_SPACE_BITS		50
@@ -16,6 +67,7 @@ volatile uint32 numSha256Runs = 0;
 volatile uint32 numSha512Runs = 0;
 volatile uint32 looptime = 0;
 volatile uint32 numloops = 0;
+volatile uint32 shatime = 0;
 
 bool protoshares_revalidateCollision(minerProtosharesBlock_t* block, uint8* midHash, uint32 indexA, uint32 indexB, uint64 birthdayB)
 {
@@ -30,10 +82,8 @@ bool protoshares_revalidateCollision(minerProtosharesBlock_t* block, uint8* midH
 	memcpy(tempHash+4, midHash, 32);
 	// get birthday A
 	*(uint32*)tempHash = indexA&~7;
-	sha512_ctx c512;
-	sha512_init(&c512);
-	sha512_update(&c512, tempHash, 32+4);
-	sha512_final(&c512, (unsigned char*)resultHash);
+	_sha512_context c512;
+	_sha512(&c512, tempHash, 32+4, (unsigned char*)resultHash);
 	numSha512Runs++;
 	uint64 birthdayA = resultHash[indexA&7] >> (64ULL-SEARCH_SPACE_BITS);
 	// get birthday B
@@ -147,7 +197,7 @@ void protoshares_process_512(minerProtosharesBlock_t* block, uint32** __collisio
 	memset(collisionIndices, 0x00, sizeof(uint32)*COLLISION_TABLE_SIZE);
 	// start search
 	uint8 tempHash[32+4];
-	sha512_ctx c512;
+	_sha512_context c512;
 	uint32 step = BIRTHDAYS_PER_HASH * CACHED_HASHES;
 	uint64 resultHashStorage[step];
 	memcpy(tempHash+4, midHash, 32);
@@ -161,9 +211,8 @@ void protoshares_process_512(minerProtosharesBlock_t* block, uint32** __collisio
 			break;
 		for(uint32 m8=0; m8<step; m8+=BIRTHDAYS_PER_HASH)
 		{
-			sha512_init(&c512);
 			*(uint32*)tempHash = n+m8;
-			sha512_update_final(&c512, tempHash, 36, (unsigned char*)(resultHashStorage+m8));
+			_sha512(&c512, tempHash, 36, (unsigned char*)(resultHashStorage+m8));
 			numSha512Runs++;
 		}
 		for(uint32 m8=0; m8<step; m8+=BIRTHDAYS_PER_HASH)

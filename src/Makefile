@@ -33,7 +33,7 @@ obj=sph_sha2.o sph_sha2big.o jhlib.o main.o transaction.o \
 		xptServerPacketHandler.o \
 		sha2.o sha512_sse4.o sha512_avx.o  sha512.o sha512_avx2_rorx.o \
 		sha256_ssse3_glue.o sha256_sse4.o sha256_avx1.o sha256_avx2_rorx8.o \
-		macro_protosharesMiner.o
+		protosharesMiner.o
 		
 obj+= win.o
 
