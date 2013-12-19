@@ -15,10 +15,10 @@ CXX=$(CC)
 # * good for icc + avx
 CFLAGS=-march=corei7-avx -mtune=corei7-avx -axAVX
 
-CFLAGS+= -O3 -funroll-loops
+CFLAGS+= -O3
 #CFLAGS+= -g
 
-#CFLAGS+= -DUNROLL_LOOPS
+CFLAGS+= -DUNROLL_LOOPS
 CFLAGS+= -DPROFILE
 #CFLAGS+= -DPROFILE_SHA
 
@@ -33,7 +33,7 @@ obj=sph_sha2.o sph_sha2big.o jhlib.o main.o transaction.o \
 		xptServerPacketHandler.o \
 		sha2.o sha512_sse4.o sha512_avx.o  sha512.o sha512_avx2_rorx.o \
 		sha256_ssse3_glue.o sha256_sse4.o sha256_avx1.o sha256_avx2_rorx8.o \
-		protosharesMiner.o
+		protosharesMiner.o protoshares_validator.o
 		
 obj+= win.o
 
@@ -41,7 +41,7 @@ app=jhProtominer
 
 all: $(app)
 
-.cpp.o: 
+.cpp.o:
 	$(CXX) $(CFLAGS) -c -o $@ $<
 
 .c.o: 

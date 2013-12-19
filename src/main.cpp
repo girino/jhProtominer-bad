@@ -107,7 +107,7 @@ int jhProtominer_minerThread(int threadIndex)
 			continue;
 		}
 		// valid work data present, start mining
-		protoshares_process_512(&minerProtosharesBlock, &__collisionMap);
+		protoshares_process(&minerProtosharesBlock, &__collisionMap);
 	}
 	return 0;
 }
